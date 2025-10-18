@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: WP REST Shield
- * Plugin URI: https://github.com/yourname/wp-rest-shield
+ * Plugin URI: https://github.com/thisisnkp/WP-REST-Shield
  * Description: Comprehensive WordPress REST API security, monitoring, and access control with JWT authentication, rate limiting, and detailed logging.
  * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://yourwebsite.com
+ * Author: Neeraj Krihna
+ * Author URI: https://infotechzone.in
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: wp-rest-shield
@@ -14,7 +14,7 @@
  * Requires PHP: 7.4
  */
 
-// Exit if accessed directly
+// Exit if accessed directly 
 if (!defined('ABSPATH')) {
     exit;
 }
