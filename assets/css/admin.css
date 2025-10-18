@@ -1,0 +1,324 @@
+/* File: assets/css/admin.css */
+
+.wrs-admin {
+    padding: 20px 0;
+}
+
+.wrs-card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    margin-bottom: 20px;
+}
+
+.wrs-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ccd0d4;
+    background: #f9f9f9;
+}
+
+.wrs-card-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.wrs-card-body {
+    padding: 20px;
+}
+
+.wrs-stats-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.wrs-stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.wrs-stat-item:last-child {
+    border-bottom: none;
+}
+
+.wrs-stat-label {
+    font-weight: 500;
+    color: #555;
+}
+
+.wrs-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #2271b1;
+}
+
+.wrs-stat-value.blocked {
+    color: #d63638;
+}
+
+.wrs-charts {
+    margin-bottom: 20px;
+}
+
+.wrs-tables {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+}
+
+.wrs-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.wrs-badge-allow {
+    background: #d4edda;
+    color: #155724;
+}
+
+.wrs-badge-block {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.wrs-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.wrs-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.wrs-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.wrs-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.wrs-toggle input:checked + .wrs-toggle-slider {
+    background-color: #2271b1;
+}
+
+.wrs-toggle input:checked + .wrs-toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.wrs-modal {
+    display: none;
+    position: fixed;
+    z-index: 100000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.wrs-modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 30px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 800px;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.wrs-modal-close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 20px;
+}
+
+.wrs-modal-close:hover,
+.wrs-modal-close:focus {
+    color: #000;
+}
+
+.wrs-form-group {
+    margin-bottom: 20px;
+}
+
+.wrs-form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.wrs-form-group input[type="text"],
+.wrs-form-group input[type="number"],
+.wrs-form-group input[type="password"],
+.wrs-form-group input[type="url"],
+.wrs-form-group select,
+.wrs-form-group textarea {
+    width: 100%;
+    max-width: 600px;
+}
+
+.wrs-form-group textarea {
+    font-family: monospace;
+}
+
+.wrs-form-actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.wrs-filter-form {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+.wrs-filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.wrs-filter-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #555;
+}
+
+.wrs-filter-field input,
+.wrs-filter-field select {
+    width: 100%;
+}
+
+.wrs-filter-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.wrs-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.wrs-pagination {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+
+.wrs-pagination button {
+    padding: 5px 10px;
+    margin: 0 2px;
+}
+
+.wrs-pagination button.active {
+    background: #2271b1;
+    color: #fff;
+    border-color: #2271b1;
+}
+
+.wrs-settings {
+    max-width: 1200px;
+}
+
+.wrs-settings .wrs-card {
+    margin-bottom: 30px;
+}
+
+.wrs-endpoint-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.wrs-endpoint-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.wrs-endpoint-item:hover {
+    background: #f9f9f9;
+}
+
+.wrs-endpoint-route {
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.wrs-endpoint-methods {
+    display: flex;
+    gap: 5px;
+}
+
+.wrs-method-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 11px;
+    border-radius: 3px;
+    font-weight: 500;
+}
+
+.wrs-method-GET { background: #d1ecf1; color: #0c5460; }
+.wrs-method-POST { background: #d4edda; color: #155724; }
+.wrs-method-PUT { background: #fff3cd; color: #856404; }
+.wrs-method-DELETE { background: #f8d7da; color: #721c24; }
+.wrs-method-PATCH { background: #e2e3e5; color: #383d41; }
+
+@media (max-width: 768px) {
+    .wrs-stats-cards,
+    .wrs-tables {
+        grid-template-columns: 1fr;
+    }
+    
+    .wrs-filter-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .wrs-modal-content {
+        width: 95%;
+        margin: 10% auto;
+        padding: 20px;
+    }
+}
