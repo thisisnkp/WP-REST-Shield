@@ -1,7 +1,6 @@
 <?php
 /**
  * Rate Limiter
- * File: includes/Core/RateLimiter.php
  */
 
 namespace WPRestShield\Core;

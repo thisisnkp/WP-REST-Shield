@@ -1,7 +1,6 @@
 <?php
 /**
  * WP REST Shield - Client Examples
- * File: examples/client-examples.php
  * 
  * This file contains example code for various clients to interact
  * with a WordPress REST API protected by WP REST Shield

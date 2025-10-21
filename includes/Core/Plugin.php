@@ -1,7 +1,6 @@
 <?php
 /**
  * Core Plugin Class
- * File: includes/Core/Plugin.php
  */
 
 namespace WPRestShield\Core;

@@ -1,7 +1,6 @@
 <?php
 /**
  * Admin Page
- * File: includes/Admin/AdminPage.php
  */
 
 namespace WPRestShield\Admin;
@@ -25,6 +24,25 @@ class AdminPage {
         add_action('wp_ajax_wrs_toggle_rule', [$this, 'ajax_toggle_rule']);
         add_action('wp_ajax_wrs_export_logs', [$this, 'ajax_export_logs']);
         add_action('wp_ajax_wrs_get_endpoints', [$this, 'ajax_get_endpoints']);
+        add_action('wp_ajax_wrs_save_jwt_secret', [$this, 'ajax_save_jwt_secret']);
+    }
+    
+    public function ajax_save_jwt_secret() {
+        check_ajax_referer('wp_rest_shield_nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+        
+        $secret = sanitize_text_field($_POST['secret']);
+        
+        if (strlen($secret) < 32) {
+            wp_send_json_error('Secret must be at least 32 characters');
+        }
+        
+        update_option('wp_rest_shield_jwt_secret', $secret);
+        
+        wp_send_json_success(['message' => 'Secret saved successfully']);
     }
     
     public function add_admin_menu() {
@@ -506,9 +524,51 @@ class AdminPage {
                                 <tr>
                                     <th><?php _e('JWT Secret', 'wp-rest-shield'); ?></th>
                                     <td>
-                                        <input type="password" name="wp_rest_shield_jwt_secret" value="<?php echo esc_attr(get_option('wp_rest_shield_jwt_secret')); ?>" class="regular-text">
-                                        <button type="button" class="button" id="generate-secret"><?php _e('Generate New', 'wp-rest-shield'); ?></button>
+                                        <div class="wrs-secret-input-wrapper" style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
+                                            <input 
+                                                type="password" 
+                                                name="wp_rest_shield_jwt_secret" 
+                                                id="jwt-secret-input" 
+                                                value="<?php echo esc_attr(get_option('wp_rest_shield_jwt_secret')); ?>" 
+                                                class="regular-text" 
+                                                style="max-width: 400px;"
+                                            >
+                                            <button 
+                                                type="button" 
+                                                class="button" 
+                                                id="toggle-secret" 
+                                                title="<?php _e('Show/Hide Secret', 'wp-rest-shield'); ?>"
+                                                style="min-width: auto; padding: 5px 10px;"
+                                            >
+                                                <span class="dashicons dashicons-visibility" style="margin-top: 3px;"></span>
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                class="button" 
+                                                id="copy-secret" 
+                                                title="<?php _e('Copy Secret', 'wp-rest-shield'); ?>"
+                                                style="min-width: auto; padding: 5px 10px;"
+                                            >
+                                                <span class="dashicons dashicons-clipboard" style="margin-top: 3px;"></span>
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                class="button" 
+                                                id="generate-secret-btn"
+                                            >
+                                                <?php _e('Generate New', 'wp-rest-shield'); ?>
+                                            </button>
+                                            <button 
+                                                type="button" 
+                                                class="button button-primary" 
+                                                id="save-secret-btn" 
+                                                style="display: none;"
+                                            >
+                                                <?php _e('Save Secret', 'wp-rest-shield'); ?>
+                                            </button>
+                                        </div>
                                         <p class="description"><?php _e('Secret key for signing JWT tokens. Store in wp-config.php as WP_REST_SHIELD_JWT_SECRET for better security', 'wp-rest-shield'); ?></p>
+                                        <div id="secret-status" style="margin-top: 10px; font-weight: 500;"></div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -646,10 +706,326 @@ class AdminPage {
                             </table>
                         </div>
                     </div>
+                    
+                    <!-- API Documentation -->
+                    <div class="wrs-card wrs-api-docs">
+                        <div class="wrs-card-header">
+                            <h3><?php _e('📚 API Documentation & Endpoints', 'wp-rest-shield'); ?></h3>
+                        </div>
+                        <div class="wrs-card-body">
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('Base URL', 'wp-rest-shield'); ?></h4>
+                                <div class="wrs-code-block">
+                                    <code id="base-url"><?php echo esc_url(rest_url()); ?></code>
+                                    <button class="button button-small wrs-copy-btn" data-copy="base-url">
+                                        <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('🔑 Authentication Endpoints', 'wp-rest-shield'); ?></h4>
+                                
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-post">POST</span>
+                                        <strong><?php _e('Generate Token', 'wp-rest-shield'); ?></strong>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="token-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="token-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Request Body:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{
+  "username": "your-username",
+  "password": "your-password"
+}</pre>
+                                        <p><strong><?php _e('Response:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "user_id": 1
+}</pre>
+                                        <p><strong><?php _e('cURL Example:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">curl -X POST <?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?> \
+  -H "Content-Type: application/json" \
+  -d '{"username":"your-username","password":"your-password"}'</pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-post">POST</span>
+                                        <strong><?php _e('Validate Token', 'wp-rest-shield'); ?></strong>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="validate-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/validate')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="validate-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Headers:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">Authorization: Bearer YOUR_TOKEN_HERE</pre>
+                                        <p><strong><?php _e('cURL Example:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">curl -X POST <?php echo esc_url(rest_url('wp-rest-shield/v1/validate')); ?> \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-post">POST</span>
+                                        <strong><?php _e('Revoke Token', 'wp-rest-shield'); ?></strong>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="revoke-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/revoke')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="revoke-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Request Body:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{"token_id": "your-token-id"}</pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-get">GET</span>
+                                        <strong><?php _e('List Active Tokens', 'wp-rest-shield'); ?></strong>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="tokens-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/tokens')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="tokens-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Auth Required:', 'wp-rest-shield'); ?></strong> Admin only</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-get">GET</span>
+                                        <strong><?php _e('Health Check', 'wp-rest-shield'); ?></strong>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="health-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/health')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="health-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('🔐 Using JWT Tokens in Requests', 'wp-rest-shield'); ?></h4>
+                                
+                                <div class="wrs-usage-example">
+                                    <h5><?php _e('JavaScript / Fetch API', 'wp-rest-shield'); ?></h5>
+                                    <pre class="wrs-code-example">// Get token
+const response = await fetch('<?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?>', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username: 'user', password: 'pass' })
+});
+const { token } = await response.json();
+
+// Use token in API calls
+const posts = await fetch('<?php echo esc_url(rest_url('wp/v2/posts')); ?>', {
+  headers: { 'Authorization': `Bearer ${token}` }
+}).then(r => r.json());</pre>
+                                </div>
+                                
+                                <div class="wrs-usage-example">
+                                    <h5><?php _e('PHP / cURL', 'wp-rest-shield'); ?></h5>
+                                    <pre class="wrs-code-example">// Get token
+$ch = curl_init('<?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?>');
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    'username' => 'user',
+    'password' => 'pass'
+]));
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+$response = json_decode(curl_exec($ch), true);
+$token = $response['token'];
+
+// Use token
+$ch = curl_init('<?php echo esc_url(rest_url('wp/v2/posts')); ?>');
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'Authorization: Bearer ' . $token
+]);
+$posts = json_decode(curl_exec($ch), true);</pre>
+                                </div>
+                                
+                                <div class="wrs-usage-example">
+                                    <h5><?php _e('Python / Requests', 'wp-rest-shield'); ?></h5>
+                                    <pre class="wrs-code-example">import requests
+
+# Get token
+r = requests.post('<?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?>',
+    json={'username': 'user', 'password': 'pass'})
+token = r.json()['token']
+
+# Use token
+r = requests.get('<?php echo esc_url(rest_url('wp/v2/posts')); ?>',
+    headers={'Authorization': f'Bearer {token}'})
+posts = r.json()</pre>
+                                </div>
+                            </div>
+                            
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('🔧 Server-to-Server Authentication', 'wp-rest-shield'); ?></h4>
+                                <p><?php _e('For backend proxies (Laravel, Node.js, etc.), use server secrets:', 'wp-rest-shield'); ?></p>
+                                <pre class="wrs-code-example">curl <?php echo esc_url(rest_url('wp/v2/posts')); ?> \
+  -H "X-Server-Secret: your-server-secret-here"</pre>
+                            </div>
+                            
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('📋 HTTP Status Codes', 'wp-rest-shield'); ?></h4>
+                                <table class="wp-list-table widefat striped">
+                                    <thead>
+                                        <tr>
+                                            <th><?php _e('Code', 'wp-rest-shield'); ?></th>
+                                            <th><?php _e('Meaning', 'wp-rest-shield'); ?></th>
+                                            <th><?php _e('Description', 'wp-rest-shield'); ?></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><code>200</code></td>
+                                            <td>OK</td>
+                                            <td><?php _e('Request successful', 'wp-rest-shield'); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>401</code></td>
+                                            <td>Unauthorized</td>
+                                            <td><?php _e('Access denied by WP REST Shield', 'wp-rest-shield'); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>429</code></td>
+                                            <td>Too Many Requests</td>
+                                            <td><?php _e('Rate limit exceeded', 'wp-rest-shield'); ?></td>
+                                        </tr>
+                                        <tr>
+                                            <td><code>403</code></td>
+                                            <td>Forbidden</td>
+                                            <td><?php _e('IP blacklisted or blocked', 'wp-rest-shield'); ?></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('💡 Quick Tips', 'wp-rest-shield'); ?></h4>
+                                <ul class="wrs-tips-list">
+                                    <li>✅ Always use HTTPS in production</li>
+                                    <li>✅ Store JWT secret in wp-config.php for security</li>
+                                    <li>✅ Set appropriate token lifetime based on your use case</li>
+                                    <li>✅ Create specific rules for each endpoint you need</li>
+                                    <li>✅ Test in Monitor mode before switching to Enforce</li>
+                                    <li>✅ Enable logging to track API usage</li>
+                                    <li>✅ Set rate limits to prevent abuse</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <?php submit_button(); ?>
             </form>
+            
+            <!-- Temporary Test Script -->
+            <script type="text/javascript">
+            jQuery(document).ready(function($) {
+                console.log('=== WP REST Shield Button Test ===');
+                
+                // Check if buttons exist
+                console.log('Toggle button exists:', $('#toggle-secret').length);
+                console.log('Copy button exists:', $('#copy-secret').length);
+                console.log('Generate button exists:', $('#generate-secret-btn').length);
+                console.log('Save button exists:', $('#save-secret-btn').length);
+                console.log('Input field exists:', $('#jwt-secret-input').length);
+                
+                // Direct simple bindings
+                $('#toggle-secret').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    console.log('Toggle clicked');
+                    var input = $('#jwt-secret-input');
+                    if (input.attr('type') === 'password') {
+                        input.attr('type', 'text');
+                        $(this).find('.dashicons').removeClass('dashicons-visibility').addClass('dashicons-hidden');
+                    } else {
+                        input.attr('type', 'password');
+                        $(this).find('.dashicons').removeClass('dashicons-hidden').addClass('dashicons-visibility');
+                    }
+                });
+                
+                $('#copy-secret').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    console.log('Copy clicked');
+                    var secret = $('#jwt-secret-input').val();
+                    var temp = $('<textarea>');
+                    $('body').append(temp);
+                    temp.val(secret).select();
+                    document.execCommand('copy');
+                    temp.remove();
+                    $('#secret-status').html('<span style="color: #00a32a;">✓ Copied!</span>');
+                    setTimeout(function() { $('#secret-status').html(''); }, 2000);
+                });
+                
+                $('#generate-secret-btn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    console.log('Generate clicked');
+                    var chars = '0123456789abcdef';
+                    var secret = '';
+                    for (var i = 0; i < 64; i++) {
+                        secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                    $('#jwt-secret-input').val(secret).attr('type', 'text');
+                    $('#save-secret-btn').show();
+                    $('#secret-status').html('<span style="color: #d63638;">⚠ Click "Save Secret" to save</span>');
+                });
+                
+                $('#save-secret-btn').off('click').on('click', function(e) {
+                    e.preventDefault();
+                    console.log('Save clicked');
+                    var secret = $('#jwt-secret-input').val();
+                    if (secret.length < 32) {
+                        alert('Secret must be at least 32 characters');
+                        return;
+                    }
+                    $('#secret-status').html('<span style="color: #2271b1;">Saving...</span>');
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'wrs_save_jwt_secret',
+                            nonce: '<?php echo wp_create_nonce("wp_rest_shield_nonce"); ?>',
+                            secret: secret
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $('#save-secret-btn').hide();
+                                $('#jwt-secret-input').attr('type', 'password');
+                                $('#secret-status').html('<span style="color: #00a32a;">✓ Saved!</span>');
+                            } else {
+                                $('#secret-status').html('<span style="color: #d63638;">✗ Failed</span>');
+                            }
+                        }
+                    });
+                });
+                
+                console.log('Button bindings complete');
+            });
+            </script>
         </div>
         <?php
     }

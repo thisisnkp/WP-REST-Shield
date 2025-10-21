@@ -1,5 +1,3 @@
-/* File: assets/js/admin.js */
-
 (function($) {
     'use strict';
     
@@ -33,8 +31,23 @@
             $(document).on('click', '#clear-filters', this.clearFilters.bind(this));
             $(document).on('click', '#export-logs', this.exportLogs.bind(this));
             
-            // Settings
-            $(document).on('click', '#generate-secret', this.generateSecret);
+            // JWT Secret management
+            $(document).on('click', '#toggle-secret', this.toggleSecret);
+            $(document).on('click', '#copy-secret', this.copySecret);
+            $(document).on('click', '#save-secret', this.saveSecret);
+            $(document).on('click', '#generate-secret', function() {
+                WRSAdmin.generateSecret();
+                $('#jwt-secret-input').attr('readonly', false);
+            });
+            
+            // Copy API URLs
+            $(document).on('click', '.wrs-copy-btn', function(e) {
+                e.preventDefault();
+                const copyId = $(this).data('copy');
+                WRSAdmin.copyToClipboard(copyId);
+            });
+            
+            // Other settings
             $(document).on('click', '#refresh-endpoints-btn', this.loadEndpoints.bind(this));
         },
         
@@ -282,8 +295,6 @@
             const row = $(e.target).closest('tr');
             const ruleId = row.data('rule-id');
             
-            // In a real implementation, fetch rule data from server
-            // For now, parse from the row
             const ruleData = {
                 id: ruleId,
                 name: row.find('td:eq(1)').text(),
@@ -412,9 +423,86 @@
             container.append(html);
         },
         
+        // JWT Secret Management
+        toggleSecret: function() {
+            const input = $('#jwt-secret-input');
+            const icon = $('#toggle-secret .dashicons');
+            
+            if (input.attr('type') === 'password') {
+                input.attr('type', 'text');
+                icon.removeClass('dashicons-visibility').addClass('dashicons-hidden');
+            } else {
+                input.attr('type', 'password');
+                icon.removeClass('dashicons-hidden').addClass('dashicons-visibility');
+            }
+        },
+        
+        copySecret: function() {
+            const input = $('#jwt-secret-input');
+            const secret = input.val();
+            
+            // Create temporary input
+            const temp = $('<input>');
+            $('body').append(temp);
+            temp.val(secret).select();
+            document.execCommand('copy');
+            temp.remove();
+            
+            // Show feedback
+            const btn = $('#copy-secret');
+            const originalHtml = btn.html();
+            btn.html('<span class="dashicons dashicons-yes"></span>');
+            btn.addClass('copied');
+            
+            setTimeout(function() {
+                btn.html(originalHtml);
+                btn.removeClass('copied');
+            }, 2000);
+        },
+        
+        saveSecret: function() {
+            const secret = $('#jwt-secret-input').val();
+            
+            if (!secret || secret.length < 32) {
+                alert('Secret must be at least 32 characters long');
+                return;
+            }
+            
+            $.ajax({
+                url: wrsData.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'wrs_save_jwt_secret',
+                    nonce: wrsData.nonce,
+                    secret: secret
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#save-secret').hide();
+                        $('#jwt-secret-input').attr('readonly', true);
+                        
+                        // Show success message
+                        const msg = $('<span class="wrs-secret-saved">✓ Saved</span>');
+                        $('#save-secret').after(msg);
+                        setTimeout(function() {
+                            msg.fadeOut(function() { $(this).remove(); });
+                        }, 3000);
+                    } else {
+                        alert('Failed to save secret');
+                    }
+                },
+                error: function() {
+                    alert('Error saving secret');
+                }
+            });
+        },
+        
         generateSecret: function() {
             const secret = WRSAdmin.randomString(64);
-            $('input[name="wp_rest_shield_jwt_secret"]').val(secret);
+            const input = $('#jwt-secret-input');
+            input.val(secret);
+            input.attr('type', 'text');
+            $('#save-secret').show();
         },
         
         randomString: function(length) {
@@ -424,6 +512,30 @@
                 result += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return result;
+        },
+        
+        copyToClipboard: function(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            // Create temporary input
+            const temp = document.createElement('input');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            
+            // Show feedback
+            const btn = event.target.closest('.wrs-copy-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="dashicons dashicons-yes"></span> Copied!';
+            btn.classList.add('copied');
+            
+            setTimeout(function() {
+                btn.innerHTML = originalHtml;
+                btn.classList.remove('copied');
+            }, 2000);
         },
         
         blockIp: function(ip) {

@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: WP REST Shield
- * Plugin URI: https://github.com/thisisnkp/WP-REST-Shield
+ * Plugin URI: Plugin URI: https://infotechzone.in/open-source-apps/wp-rest-shield
  * Description: Comprehensive WordPress REST API security, monitoring, and access control with JWT authentication, rate limiting, and detailed logging.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Neeraj Krihna
  * Author URI: https://infotechzone.in
  * License: GPL v2 or later
@@ -12,6 +12,7 @@
  * Domain Path: /languages
  * Requires at least: 5.8
  * Requires PHP: 7.4
+ * GitHub Plugin URI: https://github.com/thisisnkp/WP-REST-Shield
  */
 
 // Exit if accessed directly 

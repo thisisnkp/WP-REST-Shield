@@ -1,8 +1,6 @@
 <?php
 /**
  * WP REST Shield Test Suite
- * File: tests/test-wp-rest-shield.php
- * 
  * Run with: phpunit tests/test-wp-rest-shield.php
  */
 

@@ -306,6 +306,190 @@
 .wrs-method-DELETE { background: #f8d7da; color: #721c24; }
 .wrs-method-PATCH { background: #e2e3e5; color: #383d41; }
 
+.wrs-secret-input-wrapper {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.wrs-secret-input-wrapper input {
+    flex: 1;
+    max-width: 400px;
+}
+
+.wrs-btn-icon {
+    padding: 5px 10px !important;
+    min-width: auto !important;
+}
+
+.wrs-btn-icon .dashicons {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+.wrs-btn-icon.copied {
+    background: #00a32a;
+    border-color: #00a32a;
+    color: #fff;
+}
+
+.wrs-btn-icon.copied .dashicons {
+    color: #fff;
+}
+
+#secret-status {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+#save-secret-btn {
+    margin-left: 5px;
+}
+
+/* API Documentation Styles */
+.wrs-api-docs {
+    margin-top: 30px;
+}
+
+.wrs-doc-section {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.wrs-doc-section:last-child {
+    border-bottom: none;
+}
+
+.wrs-doc-section h4 {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    color: #1d2327;
+}
+
+.wrs-doc-section h5 {
+    margin: 15px 0 10px 0;
+    font-size: 14px;
+    color: #2c3338;
+}
+
+.wrs-code-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f6f7f7;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #dcdcde;
+    margin-bottom: 15px;
+}
+
+.wrs-code-block code {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #2c3338;
+    word-break: break-all;
+}
+
+.wrs-copy-btn {
+    flex-shrink: 0;
+}
+
+.wrs-copy-btn.copied {
+    background: #00a32a;
+    color: #fff;
+    border-color: #00a32a;
+}
+
+.wrs-endpoint {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.wrs-endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.wrs-method {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.wrs-method-post {
+    background: #49cc90;
+    color: #fff;
+}
+
+.wrs-method-get {
+    background: #61affe;
+    color: #fff;
+}
+
+.wrs-endpoint-details {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f1;
+}
+
+.wrs-endpoint-details p {
+    margin: 10px 0 5px 0;
+    font-weight: 500;
+}
+
+.wrs-code-example {
+    background: #282c34;
+    color: #abb2bf;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 10px 0;
+}
+
+.wrs-usage-example {
+    margin-bottom: 20px;
+}
+
+.wrs-tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.wrs-tips-list li {
+    padding: 8px 0;
+    font-size: 14px;
+    color: #50575e;
+}
+
+.wrs-secret-copied,
+.wrs-secret-saved {
+    display: inline-block;
+    color: #00a32a;
+    font-weight: 500;
+    margin-left: 10px;
+    animation: fadeInOut 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    0%, 100% { opacity: 0; }
+    10%, 90% { opacity: 1; }
+}
+
 @media (max-width: 768px) {
     .wrs-stats-cards,
     .wrs-tables {

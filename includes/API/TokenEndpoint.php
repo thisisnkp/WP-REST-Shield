@@ -1,7 +1,6 @@
 <?php
 /**
  * Token Endpoint API
- * File: includes/API/TokenEndpoint.php
  */
 
 namespace WPRestShield\API;
