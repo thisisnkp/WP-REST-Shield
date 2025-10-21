@@ -16,10 +16,10 @@ Complete WordPress REST API security and monitoring plugin with JWT authenticati
 - **Modern Admin UI**: Responsive React-based interface with charts and real-time stats
 
 ## Installation
-
-1. Upload the `wp-rest-shield` folder to `/wp-content/plugins/`
-2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to **REST Shield → Settings** to configure
+1. Download Plugin from https://infotechzone.in/open-source-apps/wp-rest-shield or download plugin directly from wordpress plugins
+2. Upload the `wp-rest-shield` folder to `/wp-content/plugins/`
+3. Activate the plugin through the 'Plugins' menu in WordPress
+4. Go to **REST Shield → Settings** to configure
 
 ## Quick Start
 
