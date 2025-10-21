@@ -401,8 +401,8 @@ add_action('wp_rest_shield_request_logged', function($request, $blocked) {
 ## Support
 
 For issues, feature requests, or questions:
-- GitHub Issues: https://github.com/yourname/wp-rest-shield
-- Documentation: https://yoursite.com/docs
+- GitHub Issues: https://github.com/thisisnkp/WP-REST-Shield
+- Documentation: https://infotechzone.in/apps/wp-rest-sheild/docs
 
 ## License
 

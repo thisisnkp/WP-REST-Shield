@@ -326,9 +326,9 @@ add_action('wp_rest_shield_request_logged', function($request, $blocked) {
 
 ## 📞 Support
 
-- **Docs**: https://yoursite.com/docs
-- **Issues**: https://github.com/yourname/wp-rest-shield/issues
-- **Email**: support@yoursite.com
+- **Docs**: https://infotechzone.in/apps/wp-rest-sheild/docs
+- **Issues**: https://github.com/thisisnkp/WP-REST-Shield
+- **Email**: support@infotechzone.in
 
 ---
 
