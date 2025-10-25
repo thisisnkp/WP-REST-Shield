@@ -142,6 +142,7 @@ final class WP_REST_Shield {
             id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             token_id varchar(100) NOT NULL UNIQUE,
             user_id bigint(20) NOT NULL,
+            token_type varchar(20) NOT NULL DEFAULT 'access',
             issued_at datetime NOT NULL,
             expires_at datetime NOT NULL,
             last_used datetime DEFAULT NULL,
@@ -150,6 +151,7 @@ final class WP_REST_Shield {
             PRIMARY KEY (id),
             UNIQUE KEY token_id (token_id),
             KEY user_id (user_id),
+            KEY token_type (token_type),
             KEY expires_at (expires_at)
         ) $charset_collate;";
         
@@ -161,6 +163,8 @@ final class WP_REST_Shield {
             'wp_rest_shield_mode' => 'enforce',
             'wp_rest_shield_admin_bypass' => true,
             'wp_rest_shield_jwt_lifetime' => 3600,
+            'wp_rest_shield_jwt_refresh_lifetime' => 604800, // 7 days
+            'wp_rest_shield_rotate_refresh_tokens' => false,
             'wp_rest_shield_jwt_algorithm' => 'HS256',
             'wp_rest_shield_global_rate_limit' => 60,
             'wp_rest_shield_log_enabled' => true,

@@ -27,6 +27,7 @@ class JWT {
             'exp' => $expires_at,
             'sub' => $user_id,
             'jti' => $token_id,
+            'type' => 'access'
         ];
         
         $algorithm = get_option('wp_rest_shield_jwt_algorithm', 'HS256');
@@ -42,6 +43,7 @@ class JWT {
             [
                 'token_id' => $token_id,
                 'user_id' => $user_id,
+                'token_type' => 'access',
                 'issued_at' => date('Y-m-d H:i:s', $issued_at),
                 'expires_at' => date('Y-m-d H:i:s', $expires_at),
                 'ip_address' => self::get_client_ip(),
@@ -52,9 +54,69 @@ class JWT {
     }
     
     /**
+     * Generate refresh token for user
+     */
+    public static function generate_refresh_token($user_id, $lifetime = null) {
+        if (!$lifetime) {
+            $lifetime = get_option('wp_rest_shield_jwt_refresh_lifetime', 86400 * 7); // 7 days default
+        }
+        
+        $issued_at = time();
+        $expires_at = $issued_at + $lifetime;
+        $token_id = bin2hex(random_bytes(16));
+        
+        $payload = [
+            'iss' => get_bloginfo('url'),
+            'iat' => $issued_at,
+            'exp' => $expires_at,
+            'sub' => $user_id,
+            'jti' => $token_id,
+            'type' => 'refresh'
+        ];
+        
+        $algorithm = get_option('wp_rest_shield_jwt_algorithm', 'HS256');
+        $secret = Plugin::get_jwt_secret();
+        
+        $token = self::encode($payload, $secret, $algorithm);
+        
+        // Store refresh token in database
+        global $wpdb;
+        $table = $wpdb->prefix . 'rest_shield_tokens';
+        $wpdb->insert(
+            $table,
+            [
+                'token_id' => $token_id,
+                'user_id' => $user_id,
+                'token_type' => 'refresh',
+                'issued_at' => date('Y-m-d H:i:s', $issued_at),
+                'expires_at' => date('Y-m-d H:i:s', $expires_at),
+                'ip_address' => self::get_client_ip(),
+            ]
+        );
+        
+        return $token;
+    }
+    
+    /**
+     * Generate token pair (access + refresh)
+     */
+    public static function generate_token_pair($user_id, $access_lifetime = null, $refresh_lifetime = null) {
+        $access_token = self::generate_token($user_id, $access_lifetime);
+        $refresh_token = self::generate_refresh_token($user_id, $refresh_lifetime);
+        
+        return [
+            'access_token' => $access_token,
+            'refresh_token' => $refresh_token,
+            'token_type' => 'Bearer',
+            'expires_in' => $access_lifetime ?: get_option('wp_rest_shield_jwt_lifetime', 3600),
+            'refresh_expires_in' => $refresh_lifetime ?: get_option('wp_rest_shield_jwt_refresh_lifetime', 86400 * 7)
+        ];
+    }
+    
+    /**
      * Validate JWT token
      */
-    public static function validate_token($token) {
+    public static function validate_token($token, $expected_type = 'access') {
         try {
             $algorithm = get_option('wp_rest_shield_jwt_algorithm', 'HS256');
             $secret = Plugin::get_jwt_secret();
@@ -63,6 +125,12 @@ class JWT {
             
             if (!$payload) {
                 return new \WP_Error('invalid_token', __('Invalid token', 'wp-rest-shield'));
+            }
+            
+            // Check token type
+            $token_type = $payload['type'] ?? 'access';
+            if ($token_type !== $expected_type) {
+                return new \WP_Error('invalid_token_type', __('Invalid token type', 'wp-rest-shield'));
             }
             
             // Check expiration
@@ -82,8 +150,8 @@ class JWT {
                 return new \WP_Error('token_revoked', __('Token has been revoked', 'wp-rest-shield'));
             }
             
-            // Update last used timestamp
-            if ($token_record) {
+            // Update last used timestamp for access tokens
+            if ($token_record && $expected_type === 'access') {
                 $wpdb->update(
                     $table,
                     ['last_used' => current_time('mysql')],
@@ -94,6 +162,7 @@ class JWT {
             return [
                 'user_id' => $payload['sub'],
                 'token_id' => $payload['jti'],
+                'token_type' => $token_type,
                 'issued_at' => $payload['iat'],
                 'expires_at' => $payload['exp'],
             ];
@@ -101,6 +170,40 @@ class JWT {
         } catch (\Exception $e) {
             return new \WP_Error('token_error', $e->getMessage());
         }
+    }
+    
+    /**
+     * Refresh access token using refresh token
+     */
+    public static function refresh_token($refresh_token) {
+        $validated = self::validate_token($refresh_token, 'refresh');
+        
+        if (is_wp_error($validated)) {
+            return $validated;
+        }
+        
+        $user_id = $validated['user_id'];
+        
+        // Generate new access token
+        $new_access_token = self::generate_token($user_id);
+        
+        // Optionally generate new refresh token (rotating refresh tokens)
+        $rotate_refresh = get_option('wp_rest_shield_rotate_refresh_tokens', false);
+        $new_refresh_token = $refresh_token;
+        
+        if ($rotate_refresh) {
+            // Revoke old refresh token
+            self::revoke_token($validated['token_id']);
+            // Generate new refresh token
+            $new_refresh_token = self::generate_refresh_token($user_id);
+        }
+        
+        return [
+            'access_token' => $new_access_token,
+            'refresh_token' => $new_refresh_token,
+            'token_type' => 'Bearer',
+            'expires_in' => get_option('wp_rest_shield_jwt_lifetime', 3600),
+        ];
     }
     
     /**

@@ -55,16 +55,9 @@ class AdminPage {
             'dashicons-shield',
             80
         );
-        
-        add_submenu_page(
-            'wp-rest-shield',
-            __('Dashboard', 'wp-rest-shield'),
-            __('Dashboard', 'wp-rest-shield'),
-            'manage_options',
-            'wp-rest-shield',
-            [$this, 'render_dashboard']
-        );
-        
+
+        // WordPress automatically creates a submenu with the parent slug
+        // So we just rename it to "Dashboard" instead of duplicating
         add_submenu_page(
             'wp-rest-shield',
             __('Rules', 'wp-rest-shield'),
@@ -73,7 +66,7 @@ class AdminPage {
             'wp-rest-shield-rules',
             [$this, 'render_rules']
         );
-        
+
         add_submenu_page(
             'wp-rest-shield',
             __('Logs', 'wp-rest-shield'),
@@ -82,7 +75,7 @@ class AdminPage {
             'wp-rest-shield-logs',
             [$this, 'render_logs']
         );
-        
+
         add_submenu_page(
             'wp-rest-shield',
             __('Settings', 'wp-rest-shield'),
@@ -91,6 +84,12 @@ class AdminPage {
             'wp-rest-shield-settings',
             [$this, 'render_settings']
         );
+
+        // Rename the first submenu item from "REST Shield" to "Dashboard"
+        global $submenu;
+        if (isset($submenu['wp-rest-shield'][0][0])) {
+            $submenu['wp-rest-shield'][0][0] = __('Dashboard', 'wp-rest-shield');
+        }
     }
     
     public function add_action_links($links) {
@@ -144,6 +143,8 @@ class AdminPage {
         register_setting('wp_rest_shield_settings', 'wp_rest_shield_admin_bypass');
         register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_secret');
         register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_lifetime');
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_refresh_lifetime');
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_rotate_refresh_tokens');
         register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_algorithm');
         register_setting('wp_rest_shield_settings', 'wp_rest_shield_global_rate_limit');
         register_setting('wp_rest_shield_settings', 'wp_rest_shield_log_enabled');
@@ -572,11 +573,29 @@ class AdminPage {
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th><?php _e('Token Lifetime', 'wp-rest-shield'); ?></th>
+                                    <th><?php _e('Access Token Lifetime', 'wp-rest-shield'); ?></th>
                                     <td>
                                         <input type="number" name="wp_rest_shield_jwt_lifetime" value="<?php echo esc_attr(get_option('wp_rest_shield_jwt_lifetime', 3600)); ?>" min="60">
                                         <?php _e('seconds', 'wp-rest-shield'); ?>
-                                        <p class="description"><?php _e('How long tokens remain valid (default: 3600 = 1 hour)', 'wp-rest-shield'); ?></p>
+                                        <p class="description"><?php _e('How long access tokens remain valid (default: 3600 = 1 hour)', 'wp-rest-shield'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><?php _e('Refresh Token Lifetime', 'wp-rest-shield'); ?></th>
+                                    <td>
+                                        <input type="number" name="wp_rest_shield_jwt_refresh_lifetime" value="<?php echo esc_attr(get_option('wp_rest_shield_jwt_refresh_lifetime', 604800)); ?>" min="3600">
+                                        <?php _e('seconds', 'wp-rest-shield'); ?>
+                                        <p class="description"><?php _e('How long refresh tokens remain valid (default: 604800 = 7 days)', 'wp-rest-shield'); ?></p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th><?php _e('Rotate Refresh Tokens', 'wp-rest-shield'); ?></th>
+                                    <td>
+                                        <label>
+                                            <input type="checkbox" name="wp_rest_shield_rotate_refresh_tokens" value="1" <?php checked(get_option('wp_rest_shield_rotate_refresh_tokens'), 1); ?>>
+                                            <?php _e('Issue new refresh token on each refresh (more secure)', 'wp-rest-shield'); ?>
+                                        </label>
+                                        <p class="description"><?php _e('When enabled, a new refresh token is issued each time an access token is refreshed', 'wp-rest-shield'); ?></p>
                                     </td>
                                 </tr>
                                 <tr>
@@ -745,9 +764,11 @@ class AdminPage {
 }</pre>
                                         <p><strong><?php _e('Response:', 'wp-rest-shield'); ?></strong></p>
                                         <pre class="wrs-code-example">{
-  "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
   "token_type": "Bearer",
   "expires_in": 3600,
+  "refresh_expires_in": 604800,
   "user_id": 1
 }</pre>
                                         <p><strong><?php _e('cURL Example:', 'wp-rest-shield'); ?></strong></p>
@@ -774,6 +795,30 @@ class AdminPage {
                                         <p><strong><?php _e('cURL Example:', 'wp-rest-shield'); ?></strong></p>
                                         <pre class="wrs-code-example">curl -X POST <?php echo esc_url(rest_url('wp-rest-shield/v1/validate')); ?> \
   -H "Authorization: Bearer YOUR_TOKEN"</pre>
+                                    </div>
+                                </div>
+                                
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-post">POST</span>
+                                        <strong><?php _e('Refresh Token', 'wp-rest-shield'); ?></strong>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="refresh-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/refresh')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="refresh-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Request Body:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{"refresh_token": "your-refresh-token"}</pre>
+                                        <p><strong><?php _e('Response:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{
+  "access_token": "new-access-token",
+  "refresh_token": "refresh-token-or-new-one",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}</pre>
                                     </div>
                                 </div>
                                 
@@ -829,23 +874,31 @@ class AdminPage {
                                 
                                 <div class="wrs-usage-example">
                                     <h5><?php _e('JavaScript / Fetch API', 'wp-rest-shield'); ?></h5>
-                                    <pre class="wrs-code-example">// Get token
+                                    <pre class="wrs-code-example">// Get tokens
 const response = await fetch('<?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?>', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ username: 'user', password: 'pass' })
 });
-const { token } = await response.json();
+const { access_token, refresh_token } = await response.json();
 
-// Use token in API calls
+// Use access token in API calls
 const posts = await fetch('<?php echo esc_url(rest_url('wp/v2/posts')); ?>', {
-  headers: { 'Authorization': `Bearer ${token}` }
-}).then(r => r.json());</pre>
+  headers: { 'Authorization': `Bearer ${access_token}` }
+}).then(r => r.json());
+
+// Refresh token when access token expires
+const refreshResponse = await fetch('<?php echo esc_url(rest_url('wp-rest-shield/v1/refresh')); ?>', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ refresh_token: refresh_token })
+});
+const { access_token: newAccessToken } = await refreshResponse.json();</pre>
                                 </div>
                                 
                                 <div class="wrs-usage-example">
                                     <h5><?php _e('PHP / cURL', 'wp-rest-shield'); ?></h5>
-                                    <pre class="wrs-code-example">// Get token
+                                    <pre class="wrs-code-example">// Get tokens
 $ch = curl_init('<?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?>');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
@@ -855,14 +908,24 @@ curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
 ]));
 curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
 $response = json_decode(curl_exec($ch), true);
-$token = $response['token'];
+$access_token = $response['access_token'];
+$refresh_token = $response['refresh_token'];
 
-// Use token
+// Use access token
 $ch = curl_init('<?php echo esc_url(rest_url('wp/v2/posts')); ?>');
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer ' . $token
+    'Authorization: Bearer ' . $access_token
 ]);
-$posts = json_decode(curl_exec($ch), true);</pre>
+$posts = json_decode(curl_exec($ch), true);
+
+// Refresh token when needed
+$ch = curl_init('<?php echo esc_url(rest_url('wp-rest-shield/v1/refresh')); ?>');
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+    'refresh_token' => $refresh_token
+]));
+$refreshResponse = json_decode(curl_exec($ch), true);
+$new_access_token = $refreshResponse['access_token'];</pre>
                                 </div>
                                 
                                 <div class="wrs-usage-example">
@@ -941,91 +1004,6 @@ posts = r.json()</pre>
                 
                 <?php submit_button(); ?>
             </form>
-            
-            <!-- Temporary Test Script -->
-            <script type="text/javascript">
-            jQuery(document).ready(function($) {
-                console.log('=== WP REST Shield Button Test ===');
-                
-                // Check if buttons exist
-                console.log('Toggle button exists:', $('#toggle-secret').length);
-                console.log('Copy button exists:', $('#copy-secret').length);
-                console.log('Generate button exists:', $('#generate-secret-btn').length);
-                console.log('Save button exists:', $('#save-secret-btn').length);
-                console.log('Input field exists:', $('#jwt-secret-input').length);
-                
-                // Direct simple bindings
-                $('#toggle-secret').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    console.log('Toggle clicked');
-                    var input = $('#jwt-secret-input');
-                    if (input.attr('type') === 'password') {
-                        input.attr('type', 'text');
-                        $(this).find('.dashicons').removeClass('dashicons-visibility').addClass('dashicons-hidden');
-                    } else {
-                        input.attr('type', 'password');
-                        $(this).find('.dashicons').removeClass('dashicons-hidden').addClass('dashicons-visibility');
-                    }
-                });
-                
-                $('#copy-secret').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    console.log('Copy clicked');
-                    var secret = $('#jwt-secret-input').val();
-                    var temp = $('<textarea>');
-                    $('body').append(temp);
-                    temp.val(secret).select();
-                    document.execCommand('copy');
-                    temp.remove();
-                    $('#secret-status').html('<span style="color: #00a32a;">✓ Copied!</span>');
-                    setTimeout(function() { $('#secret-status').html(''); }, 2000);
-                });
-                
-                $('#generate-secret-btn').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    console.log('Generate clicked');
-                    var chars = '0123456789abcdef';
-                    var secret = '';
-                    for (var i = 0; i < 64; i++) {
-                        secret += chars.charAt(Math.floor(Math.random() * chars.length));
-                    }
-                    $('#jwt-secret-input').val(secret).attr('type', 'text');
-                    $('#save-secret-btn').show();
-                    $('#secret-status').html('<span style="color: #d63638;">⚠ Click "Save Secret" to save</span>');
-                });
-                
-                $('#save-secret-btn').off('click').on('click', function(e) {
-                    e.preventDefault();
-                    console.log('Save clicked');
-                    var secret = $('#jwt-secret-input').val();
-                    if (secret.length < 32) {
-                        alert('Secret must be at least 32 characters');
-                        return;
-                    }
-                    $('#secret-status').html('<span style="color: #2271b1;">Saving...</span>');
-                    $.ajax({
-                        url: ajaxurl,
-                        type: 'POST',
-                        data: {
-                            action: 'wrs_save_jwt_secret',
-                            nonce: '<?php echo wp_create_nonce("wp_rest_shield_nonce"); ?>',
-                            secret: secret
-                        },
-                        success: function(response) {
-                            if (response.success) {
-                                $('#save-secret-btn').hide();
-                                $('#jwt-secret-input').attr('type', 'password');
-                                $('#secret-status').html('<span style="color: #00a32a;">✓ Saved!</span>');
-                            } else {
-                                $('#secret-status').html('<span style="color: #d63638;">✗ Failed</span>');
-                            }
-                        }
-                    });
-                });
-                
-                console.log('Button bindings complete');
-            });
-            </script>
         </div>
         <?php
     }

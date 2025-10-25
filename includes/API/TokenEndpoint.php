@@ -39,6 +39,13 @@ class TokenEndpoint {
             'permission_callback' => [$this, 'check_revoke_permission'],
         ]);
         
+        // Refresh token endpoint
+        register_rest_route('wp-rest-shield/v1', '/refresh', [
+            'methods' => 'POST',
+            'callback' => [$this, 'refresh_token'],
+            'permission_callback' => '__return_true',
+        ]);
+        
         // List active tokens
         register_rest_route('wp-rest-shield/v1', '/tokens', [
             'methods' => 'GET',
@@ -113,16 +120,17 @@ class TokenEndpoint {
             $user_id = $user->ID;
         }
         
-        // Generate token
-        $lifetime = $request->get_param('lifetime') ?: null;
-        $token = JWT::generate_token($user_id, $lifetime);
-        
-        $expires_in = get_option('wp_rest_shield_jwt_lifetime', 3600);
+        // Generate token pair (access + refresh)
+        $access_lifetime = $request->get_param('access_lifetime') ?: null;
+        $refresh_lifetime = $request->get_param('refresh_lifetime') ?: null;
+        $token_pair = JWT::generate_token_pair($user_id, $access_lifetime, $refresh_lifetime);
         
         return new WP_REST_Response([
-            'token' => $token,
+            'access_token' => $token_pair['access_token'],
+            'refresh_token' => $token_pair['refresh_token'],
             'token_type' => 'Bearer',
-            'expires_in' => $expires_in,
+            'expires_in' => $token_pair['expires_in'],
+            'refresh_expires_in' => $token_pair['refresh_expires_in'],
             'user_id' => $user_id,
         ], 200);
     }
@@ -222,6 +230,34 @@ class TokenEndpoint {
             'tokens' => $tokens,
             'count' => count($tokens),
         ], 200);
+    }
+    
+    public function refresh_token($request) {
+        $refresh_token = $request->get_param('refresh_token');
+        
+        if (!$refresh_token) {
+            // Try to get from Authorization header
+            $header = $request->get_header('Authorization');
+            if ($header && preg_match('/Bearer\s+(.*)$/i', $header, $matches)) {
+                $refresh_token = $matches[1];
+            }
+        }
+        
+        if (!$refresh_token) {
+            return new WP_Error(
+                'missing_refresh_token',
+                __('Refresh token is required', 'wp-rest-shield'),
+                ['status' => 400]
+            );
+        }
+        
+        $result = JWT::refresh_token($refresh_token);
+        
+        if (is_wp_error($result)) {
+            return $result;
+        }
+        
+        return new WP_REST_Response($result, 200);
     }
     
     public function health_check($request) {

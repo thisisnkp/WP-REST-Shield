@@ -8,12 +8,7 @@ namespace WPRestShield\Core;
 class Plugin {
     
     public function __construct() {
-        add_action('rest_api_init', [$this, 'register_routes']);
         add_action('admin_notices', [$this, 'admin_notices']);
-    }
-    
-    public function register_routes() {
-        // Plugin will register its own routes for token management
     }
     
     public function admin_notices() {

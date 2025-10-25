@@ -31,11 +31,11 @@
             $(document).on('click', '#clear-filters', this.clearFilters.bind(this));
             $(document).on('click', '#export-logs', this.exportLogs.bind(this));
             
-            // JWT Secret management
-            $(document).on('click', '#toggle-secret', this.toggleSecret);
-            $(document).on('click', '#copy-secret', this.copySecret);
-            $(document).on('click', '#save-secret', this.saveSecret);
-            $(document).on('click', '#generate-secret', function() {
+            // JWT Secret management - Fixed event bindings
+            $(document).on('click', '#toggle-secret', this.toggleSecret.bind(this));
+            $(document).on('click', '#copy-secret', this.copySecret.bind(this));
+            $(document).on('click', '#save-secret-btn', this.saveSecret.bind(this));
+            $(document).on('click', '#generate-secret-btn', function() {
                 WRSAdmin.generateSecret();
                 $('#jwt-secret-input').attr('readonly', false);
             });
@@ -424,7 +424,8 @@
         },
         
         // JWT Secret Management
-        toggleSecret: function() {
+        toggleSecret: function(e) {
+            e.preventDefault();
             const input = $('#jwt-secret-input');
             const icon = $('#toggle-secret .dashicons');
             
@@ -437,36 +438,54 @@
             }
         },
         
-        copySecret: function() {
+        copySecret: function(e) {
+            e.preventDefault();
             const input = $('#jwt-secret-input');
             const secret = input.val();
             
-            // Create temporary input
-            const temp = $('<input>');
+            if (!secret) {
+                alert('No secret to copy');
+                return;
+            }
+            
+            // Create temporary textarea for better browser compatibility
+            const temp = $('<textarea>');
             $('body').append(temp);
             temp.val(secret).select();
-            document.execCommand('copy');
+            
+            try {
+                document.execCommand('copy');
+                // Show feedback
+                const btn = $('#copy-secret');
+                const originalHtml = btn.html();
+                btn.html('<span class="dashicons dashicons-yes"></span>');
+                btn.addClass('copied');
+                
+                setTimeout(function() {
+                    btn.html(originalHtml);
+                    btn.removeClass('copied');
+                }, 2000);
+            } catch (err) {
+                console.error('Copy failed:', err);
+                alert('Copy failed, please select and copy manually');
+            }
+            
             temp.remove();
-            
-            // Show feedback
-            const btn = $('#copy-secret');
-            const originalHtml = btn.html();
-            btn.html('<span class="dashicons dashicons-yes"></span>');
-            btn.addClass('copied');
-            
-            setTimeout(function() {
-                btn.html(originalHtml);
-                btn.removeClass('copied');
-            }, 2000);
         },
         
-        saveSecret: function() {
+        saveSecret: function(e) {
+            e.preventDefault();
             const secret = $('#jwt-secret-input').val();
             
             if (!secret || secret.length < 32) {
                 alert('Secret must be at least 32 characters long');
                 return;
             }
+            
+            // Show saving state
+            const btn = $('#save-secret-btn');
+            const originalText = btn.text();
+            btn.text('Saving...').prop('disabled', true);
             
             $.ajax({
                 url: wrsData.ajaxUrl,
@@ -478,21 +497,22 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        $('#save-secret').hide();
-                        $('#jwt-secret-input').attr('readonly', true);
+                        btn.hide().prop('disabled', false).text(originalText);
+                        $('#jwt-secret-input').attr('readonly', true).attr('type', 'password');
                         
                         // Show success message
-                        const msg = $('<span class="wrs-secret-saved">✓ Saved</span>');
-                        $('#save-secret').after(msg);
+                        $('#secret-status').html('<span style="color: #00a32a;">✓ Secret saved successfully!</span>');
                         setTimeout(function() {
-                            msg.fadeOut(function() { $(this).remove(); });
+                            $('#secret-status').html('');
                         }, 3000);
                     } else {
-                        alert('Failed to save secret');
+                        btn.text(originalText).prop('disabled', false);
+                        $('#secret-status').html('<span style="color: #d63638;">✗ Failed to save secret</span>');
                     }
                 },
                 error: function() {
-                    alert('Error saving secret');
+                    btn.text(originalText).prop('disabled', false);
+                    $('#secret-status').html('<span style="color: #d63638;">✗ Error saving secret</span>');
                 }
             });
         },
@@ -501,8 +521,9 @@
             const secret = WRSAdmin.randomString(64);
             const input = $('#jwt-secret-input');
             input.val(secret);
-            input.attr('type', 'text');
-            $('#save-secret').show();
+            input.attr('type', 'text').attr('readonly', false);
+            $('#save-secret-btn').show();
+            $('#secret-status').html('<span style="color: #d63638;">⚠ Click "Save Secret" to save the new secret</span>');
         },
         
         randomString: function(length) {
