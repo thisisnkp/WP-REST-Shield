@@ -4,7 +4,7 @@
  * Plugin URI: Plugin URI: https://infotechzone.in/open-source-apps/wp-rest-shield
  * Description: Comprehensive WordPress REST API security, monitoring, and access control with JWT authentication, rate limiting, and detailed logging.
  * Version: 1.0.2
- * Author: Neeraj Krihna
+ * Author: Neeraj Krishna
  * Author URI: https://infotechzone.in
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
