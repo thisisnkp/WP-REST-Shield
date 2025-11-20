@@ -79,8 +79,9 @@ class TokenEndpoint {
             }
             
             // Use a system user or the first admin
-            $user = get_users(['role' => 'administrator', 'number' => 1])[0] ?? null;
-            
+            $users = get_users(['role' => 'administrator', 'number' => 1]);
+            $user = !empty($users) ? $users[0] : null;
+
             if (!$user) {
                 return new WP_Error(
                     'no_admin_user',
@@ -88,7 +89,7 @@ class TokenEndpoint {
                     ['status' => 500]
                 );
             }
-            
+
             $user_id = $user->ID;
         }
         // Authenticate via username/password

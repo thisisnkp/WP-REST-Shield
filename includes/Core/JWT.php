@@ -160,11 +160,11 @@ class JWT {
             }
             
             return [
-                'user_id' => $payload['sub'],
-                'token_id' => $payload['jti'],
+                'user_id' => $payload['sub'] ?? 0,
+                'token_id' => $payload['jti'] ?? '',
                 'token_type' => $token_type,
-                'issued_at' => $payload['iat'],
-                'expires_at' => $payload['exp'],
+                'issued_at' => $payload['iat'] ?? time(),
+                'expires_at' => $payload['exp'] ?? time(),
             ];
             
         } catch (\Exception $e) {

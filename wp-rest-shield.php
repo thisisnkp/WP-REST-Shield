@@ -70,12 +70,42 @@ final class WP_REST_Shield {
     
     public function init() {
         // Initialize components
-        new WPRestShield\Core\Plugin();
-        new WPRestShield\Core\RestFilter();
-        new WPRestShield\Admin\AdminPage();
-        new WPRestShield\API\TokenEndpoint();
-        new WPRestShield\Core\RateLimiter();
-        new WPRestShield\Core\Logger();
+        try {
+            new WPRestShield\Core\Plugin();
+            new WPRestShield\Core\RestFilter();
+            new WPRestShield\Admin\AdminPage();
+            new WPRestShield\API\TokenEndpoint();        // v1 API
+            new WPRestShield\API\TokenEndpointV2();      // v2 API
+            new WPRestShield\Core\RateLimiter();
+            new WPRestShield\Core\Logger();
+
+            // Log successful initialization in debug mode
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WP REST Shield: All components initialized successfully');
+            }
+        } catch (Exception $e) {
+            // Log the error
+            error_log('WP REST Shield initialization error: ' . $e->getMessage());
+
+            // Show admin notice
+            add_action('admin_notices', function() use ($e) {
+                echo '<div class="notice notice-error"><p>';
+                echo '<strong>WP REST Shield Error:</strong> ' . esc_html($e->getMessage());
+                echo '</p></div>';
+            });
+
+            return;
+        }
+
+        // Check if permalinks need flushing
+        if (get_transient('wp_rest_shield_flush_rewrite')) {
+            delete_transient('wp_rest_shield_flush_rewrite');
+            flush_rewrite_rules();
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WP REST Shield: Rewrite rules flushed');
+            }
+        }
     }
     
     public function activate() {
@@ -187,23 +217,33 @@ final class WP_REST_Shield {
             update_option('wp_rest_shield_jwt_secret', $secret);
         }
         
-        // Add default block-all rule
-        $wpdb->insert(
-            $rules_table,
-            [
-                'name' => 'Default Block All',
-                'endpoint_pattern' => '.*',
-                'method' => '*',
-                'action' => 'block',
-                'priority' => 999,
-                'enabled' => 1,
-                'created_at' => current_time('mysql'),
-            ]
-        );
-        
+        // Add default block-all rule (only if it doesn't exist)
+        $existing_rule = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $rules_table WHERE name = %s",
+            'Default Block All'
+        ));
+
+        if (!$existing_rule) {
+            $wpdb->insert(
+                $rules_table,
+                [
+                    'name' => 'Default Block All',
+                    'endpoint_pattern' => '.*',
+                    'method' => '*',
+                    'action' => 'block',
+                    'priority' => 999,
+                    'enabled' => 1,
+                    'created_at' => current_time('mysql'),
+                ]
+            );
+        }
+
         // Add admin notice
         set_transient('wp_rest_shield_activated', true, 30);
-        
+
+        // Set flag to flush rewrite rules on next init
+        set_transient('wp_rest_shield_flush_rewrite', true, 60);
+
         flush_rewrite_rules();
     }
     

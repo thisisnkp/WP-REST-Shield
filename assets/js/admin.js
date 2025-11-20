@@ -49,6 +49,7 @@
             
             // Other settings
             $(document).on('click', '#refresh-endpoints-btn', this.loadEndpoints.bind(this));
+            $(document).on('click', '#flush-rewrite-btn', this.flushRewrite.bind(this));
         },
         
         loadDashboard: function() {
@@ -564,6 +565,67 @@
             const newList = currentList ? currentList + '\n' + ip : ip;
             $('textarea[name="wp_rest_shield_ip_blacklist"]').val(newList);
             alert('IP added to blacklist. Please save settings to apply changes.');
+        },
+
+        flushRewrite: function(e) {
+            e.preventDefault();
+            const btn = $(e.target).closest('button');
+            const originalHtml = btn.html();
+            const messageDiv = $('#flush-rewrite-message');
+
+            // Show loading state
+            btn.prop('disabled', true).html('<span class="dashicons dashicons-update" style="animation: spin 1s linear infinite;"></span> Flushing...');
+
+            $.ajax({
+                url: wrsData.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'wrs_flush_rewrite',
+                    nonce: wrsData.nonce
+                },
+                success: function(response) {
+                    if (response.success) {
+                        let message = '<div class="notice notice-success" style="padding: 10px; margin: 0;">';
+                        message += '<strong>✓ Success!</strong> Rewrite rules flushed successfully.<br><br>';
+                        message += '<strong>Registered Routes:</strong><br>';
+                        message += '• v1 routes: ' + response.data.v1_routes.length + '<br>';
+                        message += '• v2 routes: ' + response.data.v2_routes.length + '<br>';
+                        message += '• Total routes: ' + response.data.total_routes + '<br><br>';
+
+                        if (response.data.v1_routes.length > 0) {
+                            message += '<strong>V1 Endpoints:</strong><ul style="margin: 5px 0 10px 20px;">';
+                            response.data.v1_routes.forEach(function(route) {
+                                message += '<li><code>' + route + '</code></li>';
+                            });
+                            message += '</ul>';
+                        }
+
+                        if (response.data.v2_routes.length > 0) {
+                            message += '<strong>V2 Endpoints:</strong><ul style="margin: 5px 0 10px 20px;">';
+                            response.data.v2_routes.forEach(function(route) {
+                                message += '<li><code>' + route + '</code></li>';
+                            });
+                            message += '</ul>';
+                        }
+
+                        message += '</div>';
+                        messageDiv.html(message).slideDown();
+
+                        // Hide message after 10 seconds
+                        setTimeout(function() {
+                            messageDiv.slideUp();
+                        }, 10000);
+                    } else {
+                        messageDiv.html('<div class="notice notice-error" style="padding: 10px; margin: 0;"><strong>Error:</strong> ' + (response.data || 'Failed to flush rewrite rules') + '</div>').slideDown();
+                    }
+                },
+                error: function() {
+                    messageDiv.html('<div class="notice notice-error" style="padding: 10px; margin: 0;"><strong>Error:</strong> Failed to communicate with server</div>').slideDown();
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html(originalHtml);
+                }
+            });
         }
     };
     

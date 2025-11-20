@@ -56,12 +56,12 @@ class RestFilter {
         if (!Plugin::is_enabled()) {
             return $result;
         }
-        
+
         $route = $request->get_route();
         $method = $request->get_method();
-        
-        // Allow plugin's own endpoints
-        if (strpos($route, '/wp-rest-shield/v1/') === 0) {
+
+        // Allow plugin's own endpoints (all versions)
+        if (strpos($route, '/wp-rest-shield/') === 0) {
             return $result;
         }
         
@@ -299,6 +299,16 @@ class RestFilter {
      * Check if IP is in list
      */
     private function ip_in_list($ip, $list) {
+        // Ensure $list is an array
+        if (!is_array($list)) {
+            if (is_string($list) && !empty($list)) {
+                // Convert string to array (handle comma or newline separated)
+                $list = array_filter(array_map('trim', preg_split('/[\n,]+/', $list)));
+            } else {
+                return false;
+            }
+        }
+
         foreach ($list as $range) {
             if ($this->ip_in_range($ip, $range)) {
                 return true;

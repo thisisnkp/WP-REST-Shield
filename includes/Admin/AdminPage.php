@@ -25,24 +25,59 @@ class AdminPage {
         add_action('wp_ajax_wrs_export_logs', [$this, 'ajax_export_logs']);
         add_action('wp_ajax_wrs_get_endpoints', [$this, 'ajax_get_endpoints']);
         add_action('wp_ajax_wrs_save_jwt_secret', [$this, 'ajax_save_jwt_secret']);
+        add_action('wp_ajax_wrs_flush_rewrite', [$this, 'ajax_flush_rewrite']);
     }
     
     public function ajax_save_jwt_secret() {
         check_ajax_referer('wp_rest_shield_nonce', 'nonce');
-        
+
         if (!current_user_can('manage_options')) {
             wp_send_json_error('Unauthorized');
         }
-        
+
         $secret = sanitize_text_field($_POST['secret']);
-        
+
         if (strlen($secret) < 32) {
             wp_send_json_error('Secret must be at least 32 characters');
         }
-        
+
         update_option('wp_rest_shield_jwt_secret', $secret);
-        
+
         wp_send_json_success(['message' => 'Secret saved successfully']);
+    }
+
+    public function ajax_flush_rewrite() {
+        check_ajax_referer('wp_rest_shield_nonce', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized');
+        }
+
+        // Flush rewrite rules
+        flush_rewrite_rules(true);
+
+        // Get REST server to check if routes are registered
+        $server = rest_get_server();
+        $routes = $server->get_routes();
+
+        $v1_routes = [];
+        $v2_routes = [];
+
+        foreach ($routes as $route => $data) {
+            if (strpos($route, '/wp-rest-shield/v1') === 0) {
+                $v1_routes[] = $route;
+            }
+            if (strpos($route, '/wp-rest-shield/v2') === 0) {
+                $v2_routes[] = $route;
+            }
+        }
+
+        wp_send_json_success([
+            'message' => 'Rewrite rules flushed successfully',
+            'v1_routes' => $v1_routes,
+            'v2_routes' => $v2_routes,
+            'total_routes' => count($routes)
+        ]);
     }
     
     public function add_admin_menu() {
@@ -138,23 +173,85 @@ class AdminPage {
     }
     
     public function register_settings() {
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_enabled');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_mode');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_admin_bypass');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_secret');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_lifetime');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_refresh_lifetime');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_rotate_refresh_tokens');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_algorithm');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_global_rate_limit');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_log_enabled');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_log_retention_days');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_allowed_origins');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_server_secrets');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_webhook_url');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_alert_threshold');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_ip_whitelist');
-        register_setting('wp_rest_shield_settings', 'wp_rest_shield_ip_blacklist');
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_enabled', [
+            'sanitize_callback' => 'absint',
+            'default' => 1
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_mode', [
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => 'enforce'
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_admin_bypass', [
+            'sanitize_callback' => 'absint',
+            'default' => 1
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_secret', [
+            'sanitize_callback' => 'sanitize_text_field'
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_lifetime', [
+            'sanitize_callback' => 'absint',
+            'default' => 3600
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_refresh_lifetime', [
+            'sanitize_callback' => 'absint',
+            'default' => 604800
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_rotate_refresh_tokens', [
+            'sanitize_callback' => 'absint',
+            'default' => 0
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_jwt_algorithm', [
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => 'HS256'
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_global_rate_limit', [
+            'sanitize_callback' => 'absint',
+            'default' => 60
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_log_enabled', [
+            'sanitize_callback' => 'absint',
+            'default' => 1
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_log_retention_days', [
+            'sanitize_callback' => 'absint',
+            'default' => 30
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_allowed_origins', [
+            'sanitize_callback' => [$this, 'sanitize_textarea_to_array']
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_server_secrets', [
+            'sanitize_callback' => [$this, 'sanitize_textarea_to_array']
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_webhook_url', [
+            'sanitize_callback' => 'esc_url_raw'
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_alert_threshold', [
+            'sanitize_callback' => 'absint',
+            'default' => 100
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_ip_whitelist', [
+            'sanitize_callback' => [$this, 'sanitize_textarea_to_array']
+        ]);
+        register_setting('wp_rest_shield_settings', 'wp_rest_shield_ip_blacklist', [
+            'sanitize_callback' => [$this, 'sanitize_textarea_to_array']
+        ]);
+    }
+
+    /**
+     * Sanitize textarea input and convert to array
+     */
+    public function sanitize_textarea_to_array($input) {
+        if (is_array($input)) {
+            return $input;
+        }
+
+        if (empty($input)) {
+            return [];
+        }
+
+        // Split by newlines and filter empty values
+        $lines = array_filter(array_map('trim', explode("\n", $input)));
+        return array_values($lines);
     }
     
     public function render_dashboard() {
@@ -238,7 +335,7 @@ class AdminPage {
     public function render_rules() {
         global $wpdb;
         $table = $wpdb->prefix . 'rest_shield_rules';
-        $rules = $wpdb->get_results("SELECT * FROM $table ORDER BY priority ASC", ARRAY_A);
+        $rules = $wpdb->get_results($wpdb->prepare("SELECT * FROM {$table} ORDER BY priority ASC"), ARRAY_A);
         ?>
         <div class="wrap wrs-admin">
             <h1><?php _e('Access Rules', 'wp-rest-shield'); ?></h1>
@@ -730,8 +827,12 @@ class AdminPage {
                     <div class="wrs-card wrs-api-docs">
                         <div class="wrs-card-header">
                             <h3><?php _e('📚 API Documentation & Endpoints', 'wp-rest-shield'); ?></h3>
+                            <button type="button" class="button" id="flush-rewrite-btn" style="margin-left: auto;">
+                                <span class="dashicons dashicons-update"></span> <?php _e('Flush Rewrite Rules', 'wp-rest-shield'); ?>
+                            </button>
                         </div>
                         <div class="wrs-card-body">
+                            <div id="flush-rewrite-message" style="display: none; margin-bottom: 15px;"></div>
                             <div class="wrs-doc-section">
                                 <h4><?php _e('Base URL', 'wp-rest-shield'); ?></h4>
                                 <div class="wrs-code-block">
@@ -744,16 +845,28 @@ class AdminPage {
                             
                             <div class="wrs-doc-section">
                                 <h4><?php _e('🔑 Authentication Endpoints', 'wp-rest-shield'); ?></h4>
-                                
+                                <p>
+                                    <strong><?php _e('Available Versions:', 'wp-rest-shield'); ?></strong>
+                                    <span class="wrs-badge wrs-badge-allow">v1</span>
+                                    <span class="wrs-badge wrs-badge-allow">v2 (Enhanced)</span>
+                                </p>
+                                <p class="description"><?php _e('v2 includes improved error handling, validation, pagination, and new endpoints like /me, /introspect, and /revoke-all', 'wp-rest-shield'); ?></p>
+
                                 <div class="wrs-endpoint">
                                     <div class="wrs-endpoint-header">
                                         <span class="wrs-method wrs-method-post">POST</span>
                                         <strong><?php _e('Generate Token', 'wp-rest-shield'); ?></strong>
                                     </div>
                                     <div class="wrs-code-block">
-                                        <code id="token-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?></code>
-                                        <button class="button button-small wrs-copy-btn" data-copy="token-url">
-                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        <code id="token-url-v1"><?php echo esc_url(rest_url('wp-rest-shield/v1/token')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="token-url-v1">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy v1', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="token-url-v2"><?php echo esc_url(rest_url('wp-rest-shield/v2/token')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="token-url-v2">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy v2', 'wp-rest-shield'); ?>
                                         </button>
                                     </div>
                                     <div class="wrs-endpoint-details">
@@ -861,10 +974,96 @@ class AdminPage {
                                         <strong><?php _e('Health Check', 'wp-rest-shield'); ?></strong>
                                     </div>
                                     <div class="wrs-code-block">
-                                        <code id="health-url"><?php echo esc_url(rest_url('wp-rest-shield/v1/health')); ?></code>
-                                        <button class="button button-small wrs-copy-btn" data-copy="health-url">
+                                        <code id="health-url-v1"><?php echo esc_url(rest_url('wp-rest-shield/v1/health')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="health-url-v1">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy v1', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="health-url-v2"><?php echo esc_url(rest_url('wp-rest-shield/v2/health')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="health-url-v2">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy v2 (detailed)', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="wrs-doc-section">
+                                <h4><?php _e('🆕 V2 Only Endpoints', 'wp-rest-shield'); ?></h4>
+
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-get">GET</span>
+                                        <strong><?php _e('Get Current User (Me)', 'wp-rest-shield'); ?></strong>
+                                        <span class="wrs-badge" style="background: #00a32a; color: white;">New in v2</span>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="me-url"><?php echo esc_url(rest_url('wp-rest-shield/v2/me')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="me-url">
                                             <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
                                         </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Auth Required:', 'wp-rest-shield'); ?></strong> Yes (JWT Token)</p>
+                                        <p><strong><?php _e('Description:', 'wp-rest-shield'); ?></strong> <?php _e('Get detailed information about the currently authenticated user', 'wp-rest-shield'); ?></p>
+                                    </div>
+                                </div>
+
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-post">POST</span>
+                                        <strong><?php _e('Token Introspection (RFC 7662)', 'wp-rest-shield'); ?></strong>
+                                        <span class="wrs-badge" style="background: #00a32a; color: white;">New in v2</span>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="introspect-url"><?php echo esc_url(rest_url('wp-rest-shield/v2/introspect')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="introspect-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Auth Required:', 'wp-rest-shield'); ?></strong> Admin only</p>
+                                        <p><strong><?php _e('Request Body:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{"token": "JWT_TOKEN_TO_INTROSPECT"}</pre>
+                                    </div>
+                                </div>
+
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-post">POST</span>
+                                        <strong><?php _e('Revoke All User Tokens', 'wp-rest-shield'); ?></strong>
+                                        <span class="wrs-badge" style="background: #00a32a; color: white;">New in v2</span>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="revoke-all-url"><?php echo esc_url(rest_url('wp-rest-shield/v2/revoke-all')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="revoke-all-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Auth Required:', 'wp-rest-shield'); ?></strong> Yes</p>
+                                        <p><strong><?php _e('Request Body:', 'wp-rest-shield'); ?></strong></p>
+                                        <pre class="wrs-code-example">{
+  "user_id": 1,
+  "token_type": "access"  // or "refresh", optional
+}</pre>
+                                    </div>
+                                </div>
+
+                                <div class="wrs-endpoint">
+                                    <div class="wrs-endpoint-header">
+                                        <span class="wrs-method wrs-method-get">GET</span>
+                                        <strong><?php _e('API Documentation', 'wp-rest-shield'); ?></strong>
+                                        <span class="wrs-badge" style="background: #00a32a; color: white;">New in v2</span>
+                                    </div>
+                                    <div class="wrs-code-block">
+                                        <code id="docs-url"><?php echo esc_url(rest_url('wp-rest-shield/v2/docs')); ?></code>
+                                        <button class="button button-small wrs-copy-btn" data-copy="docs-url">
+                                            <span class="dashicons dashicons-clipboard"></span> <?php _e('Copy', 'wp-rest-shield'); ?>
+                                        </button>
+                                    </div>
+                                    <div class="wrs-endpoint-details">
+                                        <p><strong><?php _e('Description:', 'wp-rest-shield'); ?></strong> <?php _e('Get complete API documentation in JSON format', 'wp-rest-shield'); ?></p>
                                     </div>
                                 </div>
                             </div>
